@@ -1,0 +1,52 @@
+version: '3.8'
+
+# Remove version line as it's obsolete
+services:
+  carzone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: carzone-app
+    ports:
+      - "${PORT}:8080"
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysqldb:3306/${MYSQL_DATABASE}?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      JWT_HEADER: ${JWT_HEADER}
+      JWT_PREFIX: ${JWT_PREFIX}
+      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME}
+    networks:
+      - springboot-mysql-network
+    restart: unless-stopped
+
+  mysqldb:
+    image: mysql:8.0.39
+    ports:
+      - 13306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./src/main/resources/db_migration/init_all.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - springboot-mysql-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      retries: 10
+      interval: 5s
+      timeout: 30s
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+
+networks:
+  springboot-mysql-network:
+    name: springboot-mysql-network
